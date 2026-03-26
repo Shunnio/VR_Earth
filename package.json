@@ -1,0 +1,8 @@
+{
+  "name": "threejs-earth",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "npx http-server -c-1 -p 8080"
+  }
+}
