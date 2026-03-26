@@ -1,12 +1,13 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'; // <-- Kích hoạt VRButton
+import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 
 // ============================================================
-// Google Earth VR – Solar System Simulation v11.0
-// (2x Flag Size, WebXR/VR Enabled, Wikipedia 2026 Data)
+// Google Earth VR – Solar System Simulation v15.0
+// (Perfected VR Camera Rig, Smooth Joystick Orbit, Fixed Spawn)
 // ============================================================
 
+// ─── 1. SCENE / CAMERA / RENDERER ───────────────────────────
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 2000);
 
@@ -16,11 +17,10 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1; 
-renderer.xr.enabled = true; // <-- Bật chế độ WebXR cho Renderer
+renderer.xr.enabled = true; // Bật WebXR
 document.body.style.cssText = 'margin:0;overflow:hidden;background:#000;';
 document.body.appendChild(renderer.domElement);
 
-// Thêm nút "ENTER VR" vào màn hình
 document.body.appendChild(VRButton.createButton(renderer));
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -31,7 +31,30 @@ controls.maxDistance = 30;
 
 const loader = new THREE.TextureLoader();
 
-// ─── VŨ TRỤ VÔ HẠN ───
+// ─── TRỤC QUAY VR (VR RIG HOÀN HẢO CHỐNG LỖI GÓC NHÌN) ────────
+const vrDolly = new THREE.Group();
+const vrCameraOffset = new THREE.Group();
+vrDolly.add(vrCameraOffset); // CameraOffset là con của Dolly
+scene.add(vrDolly);
+
+let vrOrbitAngle = -Math.PI / 4; // Bắt đầu ở góc chéo để thấy cả ban ngày lẫn ban đêm của Trái Đất
+let vrDistance = 5.0; // Khoảng cách từ bạn đến Trái Đất
+
+renderer.xr.addEventListener('sessionstart', () => {
+  // Khi đeo kính, cắm camera vào Offset và reset tọa độ gốc của camera
+  vrCameraOffset.add(camera);
+  camera.position.set(0, 0, 0);
+  camera.rotation.set(0, 0, 0);
+});
+
+renderer.xr.addEventListener('sessionend', () => {
+  // Khi tháo kính, trả camera ra môi trường bình thường
+  scene.add(camera);
+  camera.position.copy(earthGroup.position).add(new THREE.Vector3(0, 1.5, 4.0));
+  controls.target.copy(earthGroup.position);
+});
+
+// ─── 2. VŨ TRỤ VÔ HẠN ─────────────────────────────────────────
 const universeGroup = new THREE.Group();
 scene.add(universeGroup);
 
@@ -78,11 +101,11 @@ const starsMat = new THREE.ShaderMaterial({
 });
 universeGroup.add(new THREE.Points(starsGeo, starsMat));
 
-// ─── MẶT TRỜI TẠI TÂM ───
+// ─── 3. MẶT TRỜI (GIỮ NGUYÊN BẢN ĐẸP NHẤT) ─────────────────────
 const sunGroup = new THREE.Group();
 scene.add(sunGroup);
 
-const SUN_R = 2.0; 
+const SUN_R = 3.0; 
 const sunUniforms = { time: { value: 0 } };
 const sunMat = new THREE.ShaderMaterial({
   uniforms: sunUniforms,
@@ -121,7 +144,7 @@ const haloSprite2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTexture
 haloSprite2.scale.set(SUN_R * 5.0, SUN_R * 5.0, 1);
 sunGroup.add(haloSprite2);
 
-// ─── ĐƯỜNG QUỸ ĐẠO MỜ ───
+// ─── 4. ĐƯỜNG QUỸ ĐẠO MỜ ──────────────────────────────────────
 const ORBIT_RADIUS = 25.0; 
 const orbitPts = [];
 for (let i = 0; i <= 128; i++) {
@@ -134,14 +157,14 @@ const orbitLine = new THREE.Line(
 );
 scene.add(orbitLine);
 
-// ─── ÁNH SÁNG ───
+// ─── 5. ÁNH SÁNG ──────────────────────────────────────────────
 const sunLight = new THREE.DirectionalLight(0xfff5cc, 0.5);
 sunLight.position.copy(sunGroup.position);
 scene.add(sunLight);
 scene.add(new THREE.DirectionalLight(0x2244aa, 0.1)); 
 scene.add(new THREE.AmbientLight(0x334466, 0.2));
 
-// ─── TRÁI ĐẤT ───
+// ─── 6. TRÁI ĐẤT ──────────────────────────────────────────────
 const earthGroup = new THREE.Group();
 earthGroup.rotation.z = THREE.MathUtils.degToRad(23.5);
 scene.add(earthGroup);
@@ -204,7 +227,7 @@ const clouds = new THREE.Mesh(
 );
 earthGroup.add(clouds);
 
-// ─── DỮ LIỆU WIKIPEDIA 2026 & ĐỊA ĐIỂM CỜ ───
+// ─── 7. DỮ LIỆU WIKIPEDIA 2026 ───────────────────────────────
 const interactionPoints = [];
 function latLonToVector3(lat, lon, radius) {
   const phi = (90 - lat) * (Math.PI / 180);
@@ -243,8 +266,6 @@ locations.forEach(loc => {
   const flagTex = loader.load(`https://flagcdn.com/w160/${loc.cCode}.png`);
   const flagMat = new THREE.SpriteMaterial({ map: flagTex, transparent: true });
   const flag = new THREE.Sprite(flagMat);
-  
-  // <-- Cờ được nhân đôi kích thước so với bản trước (0.04 -> 0.08)
   flag.scale.set(0.08, 0.052, 1);
   flag.position.set(0, 0.035, 0); 
   markerGroup.add(flag);
@@ -341,14 +362,11 @@ window.addEventListener('mousemove', (e) => {
     const point = intersects[0].object;
     if (hoveredPoint !== point) {
       if (hoveredPoint) {
-        hoveredPoint.material.color.setHex(0xff3333);
         hoveredPoint.userData.flag.scale.set(0.08, 0.052, 1); 
-        hoveredPoint.userData.glow.material.color.setHex(0xffffff);
         hoveredPoint.userData.glow.material.opacity = 0.2;
       }
       hoveredPoint = point;
       hoveredPoint.material.color.setHex(0x55ff55); 
-      // Cờ phóng to một chút khi hover
       hoveredPoint.userData.flag.scale.set(0.12, 0.08, 1);
       hoveredPoint.userData.glow.material.color.setHex(0x55ff55);
       hoveredPoint.userData.glow.material.opacity = 0.5;
@@ -362,9 +380,7 @@ window.addEventListener('mousemove', (e) => {
     }
   } else {
     if (hoveredPoint) {
-      hoveredPoint.material.color.setHex(0xff3333);
       hoveredPoint.userData.flag.scale.set(0.08, 0.052, 1);
-      hoveredPoint.userData.glow.material.color.setHex(0xffffff);
       hoveredPoint.userData.glow.material.opacity = 0.2;
       hoveredPoint = null;
       document.body.style.cursor = 'default';
@@ -378,7 +394,7 @@ window.addEventListener('mousemove', (e) => {
   }
 });
 
-// ─── ANIMATION LOOP ───
+// ─── 8. ANIMATION LOOP (TÍCH HỢP JOYSTICK ĐIỀU KHIỂN VR) ────────
 const clock = new THREE.Clock();
 const BASE_ROTATION_SPEED = 0.03; 
 const BASE_ORBIT_SPEED = 0.005; 
@@ -400,12 +416,42 @@ renderer.setAnimationLoop(() => {
   const dx = earthGroup.position.x - previousEarthPosition.x;
   const dz = earthGroup.position.z - previousEarthPosition.z;
   
-  camera.position.x += dx;
-  camera.position.z += dz;
-  controls.target.copy(earthGroup.position);
+  // LOGIC ĐIỀU KHIỂN RIÊNG CHO MÔI TRƯỜNG VR
+  if (renderer.xr.isPresenting) {
+    const session = renderer.xr.getSession();
+    if (session && session.inputSources) {
+      for (const source of session.inputSources) {
+        if (source.gamepad && source.gamepad.axes) {
+          // Lấy giá trị gạt Joystick trái/phải (X) và Lên/xuống (Y)
+          const stickX = source.gamepad.axes.length > 2 ? source.gamepad.axes[2] : source.gamepad.axes[0];
+          const stickY = source.gamepad.axes.length > 3 ? source.gamepad.axes[3] : source.gamepad.axes[1];
+
+          if (Math.abs(stickX) > 0.1) vrOrbitAngle -= stickX * 0.03; // Quét trái/phải quanh Trái Đất
+          if (Math.abs(stickY) > 0.1) vrDistance += stickY * 0.05;   // Đẩy lên/xuống để Zoom in/out
+        }
+      }
+    }
+    
+    // Giới hạn không cho camera đâm vào tâm Trái Đất hoặc bay quá xa
+    vrDistance = THREE.MathUtils.clamp(vrDistance, 1.5, 12.0);
+
+    // Tính toán tọa độ vệ tinh xoay quanh Trái Đất (Dolly)
+    vrDolly.position.copy(earthGroup.position);
+    vrDolly.rotation.y = vrOrbitAngle;
+    vrCameraOffset.position.set(0, 0, vrDistance);
+
+  } else {
+    // Nếu chơi trên Desktop, dùng chuột bình thường
+    camera.position.x += dx;
+    camera.position.z += dz;
+    controls.target.copy(earthGroup.position);
+  }
+  
   previousEarthPosition.copy(earthGroup.position);
   
-  universeGroup.position.copy(camera.position);
+  const cameraWorldPos = new THREE.Vector3();
+  camera.getWorldPosition(cameraWorldPos);
+  universeGroup.position.copy(cameraWorldPos);
 
   const sunDirW = sunGroup.position.clone().sub(earthGroup.position).normalize();
   const invN = new THREE.Matrix3().getNormalMatrix(earthGroup.matrixWorld).invert();
@@ -413,7 +459,28 @@ renderer.setAnimationLoop(() => {
   atmosMat.uniforms.sunDirection.value.copy(sunDirL);
   cityLightsMat.uniforms.sunDirection.value.copy(sunDirL);
 
-  controls.update();
+  const earthWorldPos = new THREE.Vector3();
+  earthGroup.getWorldPosition(earthWorldPos);
+
+  interactionPoints.forEach(point => {
+    if (point !== hoveredPoint) { 
+      const pointWorldPos = new THREE.Vector3();
+      point.getWorldPosition(pointWorldPos);
+      
+      const normal = pointWorldPos.clone().sub(earthWorldPos).normalize();
+      const dot = normal.dot(sunDirW);
+      
+      if (dot < -0.1) {
+        point.material.color.setHex(0xffffff); 
+        point.userData.glow.material.color.setHex(0xcccccc); 
+      } else {
+        point.material.color.setHex(0xff3333); 
+        point.userData.glow.material.color.setHex(0xffffff); 
+      }
+    }
+  });
+
+  if (!renderer.xr.isPresenting) controls.update();
   renderer.render(scene, camera);
   
   document.getElementById('hudAltitude').textContent = Number((camera.position.length() - 1) * 6371).toFixed(0) + ' KM';
