@@ -3,8 +3,8 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js';
 
 // ============================================================
-// Google Earth VR – Solar System Simulation v15.0
-// (Perfected VR Camera Rig, Smooth Joystick Orbit, Fixed Spawn)
+// Google Earth VR – Solar System Simulation v22.0
+// (Local Textures 8K, MilkyWay Skybox, Optimized Performance)
 // ============================================================
 
 // ─── 1. SCENE / CAMERA / RENDERER ───────────────────────────
@@ -17,7 +17,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1; 
-renderer.xr.enabled = true; // Bật WebXR
+renderer.xr.enabled = true; 
 document.body.style.cssText = 'margin:0;overflow:hidden;background:#000;';
 document.body.appendChild(renderer.domElement);
 
@@ -30,39 +30,49 @@ controls.minDistance = 1.3;
 controls.maxDistance = 30;
 
 const loader = new THREE.TextureLoader();
+const starTexture = loader.load('./textures/stars/circle.png');
 
-// ─── TRỤC QUAY VR (VR RIG HOÀN HẢO CHỐNG LỖI GÓC NHÌN) ────────
+// ─── TRỤC QUAY VR DOLLY ───────────────────────────────────────
 const vrDolly = new THREE.Group();
 const vrCameraOffset = new THREE.Group();
-vrDolly.add(vrCameraOffset); // CameraOffset là con của Dolly
+vrDolly.add(vrCameraOffset); 
 scene.add(vrDolly);
 
-let vrOrbitAngle = -Math.PI / 4; // Bắt đầu ở góc chéo để thấy cả ban ngày lẫn ban đêm của Trái Đất
-let vrDistance = 5.0; // Khoảng cách từ bạn đến Trái Đất
+let vrOrbitAngle = -Math.PI / 4; 
+let vrDistance = 5.0; 
 
 renderer.xr.addEventListener('sessionstart', () => {
-  // Khi đeo kính, cắm camera vào Offset và reset tọa độ gốc của camera
   vrCameraOffset.add(camera);
   camera.position.set(0, 0, 0);
   camera.rotation.set(0, 0, 0);
 });
 
 renderer.xr.addEventListener('sessionend', () => {
-  // Khi tháo kính, trả camera ra môi trường bình thường
   scene.add(camera);
-  camera.position.copy(earthGroup.position).add(new THREE.Vector3(0, 1.5, 4.0));
-  controls.target.copy(earthGroup.position);
+  camera.position.copy(earthSystem.position).add(new THREE.Vector3(0, 1.5, 4.0));
+  controls.target.copy(earthSystem.position);
 });
 
-// ─── 2. VŨ TRỤ VÔ HẠN ─────────────────────────────────────────
+// ─── 2. VŨ TRỤ VÔ HẠN (SKYBOX ẢNH LOCAL + SAO BĂNG) ───────────
 const universeGroup = new THREE.Group();
 scene.add(universeGroup);
 
-const starBgGeo = new THREE.SphereGeometry(600, 32, 32);
-const starBgMat = new THREE.MeshBasicMaterial({ color: 0x111111, side: THREE.BackSide, depthWrite: false });
-universeGroup.add(new THREE.Mesh(starBgGeo, starBgMat));
+// A. BẦU TRỜI NGÂN HÀ 360 ĐỘ BẰNG ẢNH LOCAL CỦA BẠN (07_milkyway.jpg)
+const starBgGeo = new THREE.SphereGeometry(600, 64, 64);
+const starBgMat = new THREE.MeshBasicMaterial({ 
+  map: loader.load('./textures/07_milkyway.jpg'), // Dùng ảnh thực tế thay cho code mây
+  side: THREE.BackSide, 
+  color: 0xffffff, // Giữ nguyên màu gốc của ảnh
+  depthWrite: false 
+});
+// Xoay ảnh một chút để dải ngân hà vắt chéo đẹp mắt
+const skybox = new THREE.Mesh(starBgGeo, starBgMat);
+skybox.rotation.x = Math.PI / 4; 
+skybox.rotation.y = -Math.PI / 6;
+universeGroup.add(skybox);
 
-const starsCount = 6000;
+// B. LỚP SAO NỀN NHẤP NHÁY
+const starsCount = 3000;
 const posArray = new Float32Array(starsCount * 3);
 const sizesArray = new Float32Array(starsCount);
 const phasesArray = new Float32Array(starsCount);
@@ -70,7 +80,7 @@ for (let i = 0; i < starsCount; i++) {
   posArray[i * 3] = (Math.random() - 0.5) * 800;
   posArray[i * 3 + 1] = (Math.random() - 0.5) * 800;
   posArray[i * 3 + 2] = (Math.random() - 0.5) * 800;
-  sizesArray[i] = Math.random() * 2.0 + 1.0;
+  sizesArray[i] = Math.random() * 1.5 + 0.5;
   phasesArray[i] = Math.random() * Math.PI * 2;
 }
 const starsGeo = new THREE.BufferGeometry();
@@ -78,7 +88,7 @@ starsGeo.setAttribute('position', new THREE.BufferAttribute(posArray, 3));
 starsGeo.setAttribute('size', new THREE.BufferAttribute(sizesArray, 1));
 starsGeo.setAttribute('phase', new THREE.BufferAttribute(phasesArray, 1));
 
-const starUniforms = { time: { value: 0 }, starTexture: { value: loader.load('./textures/stars/circle.png') } };
+const starUniforms = { time: { value: 0 }, starTexture: { value: starTexture } };
 const starsMat = new THREE.ShaderMaterial({
   uniforms: starUniforms,
   vertexShader: `
@@ -87,7 +97,7 @@ const starsMat = new THREE.ShaderMaterial({
       vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
       gl_PointSize = size * (300.0 / -mvPosition.z);
       gl_Position = projectionMatrix * mvPosition;
-      vAlpha = 0.3 + 0.7 * sin(time * 2.0 + phase);
+      vAlpha = 0.2 + 0.5 * sin(time * 1.5 + phase);
     }
   `,
   fragmentShader: `
@@ -101,7 +111,21 @@ const starsMat = new THREE.ShaderMaterial({
 });
 universeGroup.add(new THREE.Points(starsGeo, starsMat));
 
-// ─── 3. MẶT TRỜI (GIỮ NGUYÊN BẢN ĐẸP NHẤT) ─────────────────────
+// C. HỆ THỐNG SAO BĂNG
+const meteors = [];
+for (let i = 0; i < 7; i++) {
+  const mMat = new THREE.MeshBasicMaterial({ color: 0xaaeeff, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false });
+  const mGeo = new THREE.CylinderGeometry(0.0, 0.3, 30, 8); 
+  mGeo.rotateX(-Math.PI / 2);
+  const mMesh = new THREE.Mesh(mGeo, mMat);
+  universeGroup.add(mMesh);
+  
+  meteors.push({
+    mesh: mMesh, active: false, timer: 5 + Math.random() * 10, progress: 0, start: new THREE.Vector3(), end: new THREE.Vector3()
+  });
+}
+
+// ─── 3. MẶT TRỜI ──────────────────────────────────────────────
 const sunGroup = new THREE.Group();
 scene.add(sunGroup);
 
@@ -112,18 +136,46 @@ const sunMat = new THREE.ShaderMaterial({
   vertexShader: `varying vec2 vUv; varying vec3 vNormal; varying vec3 vPos; void main(){ vUv=uv; vNormal=normalize(normalMatrix*normal); vPos=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
   fragmentShader: `
     uniform float time; varying vec2 vUv; varying vec3 vNormal; varying vec3 vPos;
-    float noise(vec3 p) { return sin(p.x*3.0 + time)*cos(p.y*3.0 + time)*sin(p.z*3.0)*0.5 + 0.5; }
+    vec4 permute(vec4 x){return mod(((x*34.0)+1.0)*x, 289.0);}
+    vec4 taylorInvSqrt(vec4 r){return 1.79284291400159 - 0.85373472095314 * r;}
+    float snoise(vec3 v){ 
+      const vec2 C = vec2(1.0/6.0, 1.0/3.0); const vec4 D = vec4(0.0, 0.5, 1.0, 2.0);
+      vec3 i  = floor(v + dot(v, C.yyy)); vec3 x0 = v - i + dot(i, C.xxx);
+      vec3 g = step(x0.yzx, x0.xyz); vec3 l = 1.0 - g;
+      vec3 i1 = min(g.xyz, l.zxy); vec3 i2 = max(g.xyz, l.zxy);
+      vec3 x1 = x0 - i1 + 1.0 * C.xxx; vec3 x2 = x0 - i2 + 2.0 * C.xxx; vec3 x3 = x0 - 1.0 + 3.0 * C.xxx;
+      i = mod(i, 289.0); 
+      vec4 p = permute(permute(permute(i.z + vec4(0.0, i1.z, i2.z, 1.0)) + i.y + vec4(0.0, i1.y, i2.y, 1.0)) + i.x + vec4(0.0, i1.x, i2.x, 1.0));
+      float n_ = 1.0/7.0; vec3 ns = n_ * D.wyz - D.xzx;
+      vec4 j = p - 49.0 * floor(p * ns.z *ns.z); vec4 x_ = floor(j * ns.z); vec4 y_ = floor(j - 7.0 * x_);
+      vec4 x = x_ *ns.x + ns.yyyy; vec4 y = y_ *ns.x + ns.yyyy; vec4 h = 1.0 - abs(x) - abs(y);
+      vec4 b0 = vec4(x.xy, y.xy); vec4 b1 = vec4(x.zw, y.zw);
+      vec4 s0 = floor(b0)*2.0 + 1.0; vec4 s1 = floor(b1)*2.0 + 1.0; vec4 sh = -step(h, vec4(0.0));
+      vec4 a0 = b0.xzyw + s0.xzyw*sh.xxyy; vec4 a1 = b1.xzyw + s1.xzyw*sh.zzww;
+      vec3 p0 = vec3(a0.xy,h.x); vec3 p1 = vec3(a0.zw,h.y); vec3 p2 = vec3(a1.xy,h.z); vec3 p3 = vec3(a1.zw,h.w);
+      vec4 norm = taylorInvSqrt(vec4(dot(p0,p0), dot(p1,p1), dot(p2, p2), dot(p3,p3)));
+      p0 *= norm.x; p1 *= norm.y; p2 *= norm.z; p3 *= norm.w;
+      vec4 m = max(0.6 - vec4(dot(x0,x0), dot(x1,x1), dot(x2,x2), dot(x3,x3)), 0.0);
+      m = m * m; return 42.0 * dot(m*m, vec4(dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3)));
+    }
+    float fbm(vec3 p) {
+        float f = 0.0;
+        f += 0.5000 * snoise(p); p = p * 2.02;
+        f += 0.2500 * snoise(p); p = p * 2.03;
+        f += 0.1250 * snoise(p);
+        return f * 0.5 + 0.5;
+    }
     void main(){
-      float n = noise(vPos + time * 0.17); 
-      vec3 color1 = vec3(1.0, 0.95, 0.5); 
-      vec3 color2 = vec3(1.0, 0.3, 0.0);  
-      vec3 finalColor = mix(color2, color1, n * 1.5);
+      float n = fbm(vPos * 2.5 + time * 0.15); 
+      vec3 color1 = vec3(1.0, 0.95, 0.4);
+      vec3 color2 = vec3(0.9, 0.2, 0.0);
+      vec3 finalColor = mix(color2, color1, n * 1.3);
       float fresnel = pow(1.0 - max(dot(vNormal, vec3(0,0,1)), 0.0), 2.0);
       gl_FragColor = vec4(finalColor + vec3(1.0, 0.8, 0.2) * fresnel, 1.0);
     }
   `,
 });
-sunGroup.add(new THREE.Mesh(new THREE.SphereGeometry(SUN_R, 64, 64), sunMat));
+sunGroup.add(new THREE.Mesh(new THREE.SphereGeometry(SUN_R, 128, 128), sunMat));
 
 const canvas = document.createElement('canvas');
 canvas.width = 256; canvas.height = 256;
@@ -144,47 +196,34 @@ const haloSprite2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTexture
 haloSprite2.scale.set(SUN_R * 5.0, SUN_R * 5.0, 1);
 sunGroup.add(haloSprite2);
 
-// ─── 4. ĐƯỜNG QUỸ ĐẠO MỜ ──────────────────────────────────────
-const ORBIT_RADIUS = 25.0; 
-const orbitPts = [];
-for (let i = 0; i <= 128; i++) {
-  const a = (i / 128) * Math.PI * 2;
-  orbitPts.push(new THREE.Vector3(Math.cos(a) * ORBIT_RADIUS, 0, Math.sin(a) * ORBIT_RADIUS));
-}
-const orbitLine = new THREE.Line(
-  new THREE.BufferGeometry().setFromPoints(orbitPts),
-  new THREE.LineBasicMaterial({ color: 0x5588aa, transparent: true, opacity: 0.3 })
-);
-scene.add(orbitLine);
+// ─── 4. HỆ THỐNG TRÁI ĐẤT & MẶT TRĂNG VỚI LOCAL TEXTURES ──────
+const earthSystem = new THREE.Group(); 
+scene.add(earthSystem);
 
-// ─── 5. ÁNH SÁNG ──────────────────────────────────────────────
-const sunLight = new THREE.DirectionalLight(0xfff5cc, 0.5);
+const ORBIT_RADIUS = 25.0; 
+earthSystem.position.set(ORBIT_RADIUS, 0, 0); 
+
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
 sunLight.position.copy(sunGroup.position);
+sunLight.target = earthSystem;
 scene.add(sunLight);
 scene.add(new THREE.DirectionalLight(0x2244aa, 0.1)); 
-scene.add(new THREE.AmbientLight(0x334466, 0.2));
+scene.add(new THREE.AmbientLight(0x334466, 0.15));
 
-// ─── 6. TRÁI ĐẤT ──────────────────────────────────────────────
 const earthGroup = new THREE.Group();
 earthGroup.rotation.z = THREE.MathUtils.degToRad(23.5);
-scene.add(earthGroup);
-sunLight.target = earthGroup;
-
-let earthOrbitAngle = 0; 
-earthGroup.position.set(ORBIT_RADIUS, 0, 0); 
-
-camera.position.set(ORBIT_RADIUS, 1.5, 4.0);
-controls.target.copy(earthGroup.position);
-let previousEarthPosition = new THREE.Vector3().copy(earthGroup.position);
+earthSystem.add(earthGroup); 
 
 const EARTH_R = 1.0;
-
 const earth = new THREE.Mesh(
   new THREE.SphereGeometry(EARTH_R, 128, 128),
   new THREE.MeshPhongMaterial({
-    map: loader.load('./textures/00_earthmap1k.jpg'),
-    bumpMap: loader.load('./textures/01_earthbump1k.jpg'), bumpScale: 0.02,
-    specularMap: loader.load('./textures/02_earthspec1k.jpg'), specular: new THREE.Color(0x55aacc), shininess: 20,
+    map:         loader.load('./textures/00_earthmap8k.jpg'), // Bản 8K
+    bumpMap:     loader.load('./textures/01_earthbump1k.jpg'), 
+    bumpScale:   0.02,
+    specularMap: loader.load('./textures/02_earthspec1k.jpg'), 
+    specular:    new THREE.Color(0x55aacc), 
+    shininess:   20,
   })
 );
 earthGroup.add(earth);
@@ -227,7 +266,39 @@ const clouds = new THREE.Mesh(
 );
 earthGroup.add(clouds);
 
-// ─── 7. DỮ LIỆU WIKIPEDIA 2026 ───────────────────────────────
+const moonOrbitGroup = new THREE.Group();
+moonOrbitGroup.rotation.x = THREE.MathUtils.degToRad(5.14);
+earthSystem.add(moonOrbitGroup);
+
+const MOON_ORBIT_R = 4.0;
+const moon = new THREE.Mesh(
+  new THREE.SphereGeometry(EARTH_R * 0.27, 64, 64),
+  new THREE.MeshPhongMaterial({
+    map: loader.load('./textures/06_moon.jpg'), 
+    shininess: 5,
+  })
+);
+moonOrbitGroup.add(moon);
+
+const orbitPts = [];
+for (let i = 0; i <= 128; i++) {
+  const a = (i / 128) * Math.PI * 2;
+  orbitPts.push(new THREE.Vector3(Math.cos(a) * ORBIT_RADIUS, 0, Math.sin(a) * ORBIT_RADIUS));
+}
+scene.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(orbitPts), new THREE.LineBasicMaterial({ color: 0x5588aa, transparent: true, opacity: 0.3 })));
+
+const lunarOrbitPts = [];
+for (let i = 0; i <= 64; i++) {
+  const a = (i / 64) * Math.PI * 2;
+  lunarOrbitPts.push(new THREE.Vector3(Math.cos(a) * MOON_ORBIT_R, 0, Math.sin(a) * MOON_ORBIT_R));
+}
+moonOrbitGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(lunarOrbitPts), new THREE.LineBasicMaterial({ color: 0x555555, transparent: true, opacity: 0.5 })));
+
+camera.position.set(ORBIT_RADIUS, 1.5, 4.0);
+controls.target.copy(earthSystem.position);
+let previousEarthPosition = new THREE.Vector3().copy(earthSystem.position);
+
+// ─── 5. DỮ LIỆU ĐỊA ĐIỂM WIKIPEDIA 2026 ───────────────────────
 const interactionPoints = [];
 function latLonToVector3(lat, lon, radius) {
   const phi = (90 - lat) * (Math.PI / 180);
@@ -275,8 +346,6 @@ locations.forEach(loc => {
   interactionPoints.push(core);
 });
 
-earthGroup.rotation.y = -Math.PI / 1.5; 
-
 // ─── GIAO DIỆN HUD ───
 const hud = document.createElement('div');
 hud.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;pointer-events:none;z-index:1000;';
@@ -313,9 +382,16 @@ hud.innerHTML = `
     <div class="hud-panel" style="bottom:20px;right:20px;min-width:180px;">
       <div class="hud-title" style="font-size:12px;">SATELLITE CONTROLS</div>
       <div class="hud-item">ALTITUDE <span class="hud-stat" id="hudAltitude">--</span></div>
-      <div class="hud-item" style="border:none;">ZOOM <span class="hud-stat" id="hudZoom">--</span></div>
       
       <div style="margin-top:10px; border-top:1px solid rgba(80,160,255,0.3); padding-top:10px;">
+        <div style="display:flex; justify-content:space-between; font-size:11px; color:#33aaff;">
+          <span>SUN BRIGHTNESS</span>
+          <span id="lightVal" style="color:#fff; font-weight:bold;">1.5</span>
+        </div>
+        <input type="range" id="lightIntensity" min="0" max="5" step="0.1" value="1.5">
+      </div>
+      
+      <div style="margin-top:10px;">
         <div style="display:flex; justify-content:space-between; font-size:11px; color:#33aaff;">
           <span>EARTH ROTATION</span>
           <span id="speedVal" style="color:#fff; font-weight:bold;">1.0X</span>
@@ -334,6 +410,11 @@ hud.innerHTML = `
   </div>
 `;
 document.body.appendChild(hud);
+
+document.getElementById('lightIntensity').addEventListener('input', (e) => {
+  sunLight.intensity = parseFloat(e.target.value);
+  document.getElementById('lightVal').textContent = sunLight.intensity.toFixed(1);
+});
 
 let earthRotationSpeedMultiplier = 1.0;
 document.getElementById('rotSpeed').addEventListener('input', (e) => {
@@ -394,10 +475,14 @@ window.addEventListener('mousemove', (e) => {
   }
 });
 
-// ─── 8. ANIMATION LOOP (TÍCH HỢP JOYSTICK ĐIỀU KHIỂN VR) ────────
+// ─── 8. ANIMATION LOOP ────────────────────────────────────────
 const clock = new THREE.Clock();
 const BASE_ROTATION_SPEED = 0.03; 
 const BASE_ORBIT_SPEED = 0.005; 
+const BASE_MOON_SPEED = 0.02; 
+
+let earthOrbitAngle = 0;
+let moonOrbitAngle = 0;
 
 renderer.setAnimationLoop(() => {
   const delta = clock.getDelta();
@@ -406,54 +491,86 @@ renderer.setAnimationLoop(() => {
   starUniforms.time.value = time;
   sunUniforms.time.value = time; 
   
+  const camDir = new THREE.Vector3();
+  camera.getWorldDirection(camDir);
+
+  meteors.forEach(m => {
+    if (!m.active) {
+      m.timer -= delta;
+      if (m.timer <= 0) {
+        m.active = true;
+        m.timer = 10 + Math.random() * 5; 
+        m.progress = 0;
+        
+        const spawnCenter = camDir.clone().multiplyScalar(120); 
+        const randomOffset = new THREE.Vector3((Math.random()-0.5)*200, (Math.random()-0.5)*200, (Math.random()-0.5)*200);
+        m.start.copy(spawnCenter).add(randomOffset);
+        
+        const flyDir = new THREE.Vector3((Math.random()-0.5), (Math.random()-0.5), (Math.random()-0.5)).normalize();
+        m.end.copy(m.start).add(flyDir.multiplyScalar(250)); 
+        
+        m.mesh.position.copy(m.start);
+        m.mesh.lookAt(m.start.clone().add(flyDir)); 
+      }
+    } else {
+      m.progress += delta * 1.5; 
+      m.mesh.position.lerpVectors(m.start, m.end, m.progress);
+      m.mesh.material.opacity = Math.sin(m.progress * Math.PI) * 1.5;
+      
+      if (m.progress >= 1.0) {
+        m.active = false;
+        m.mesh.material.opacity = 0;
+      }
+    }
+  });
+  
   earthGroup.rotation.y += delta * BASE_ROTATION_SPEED * earthRotationSpeedMultiplier;
   clouds.rotation.y += delta * (BASE_ROTATION_SPEED + 0.01) * earthRotationSpeedMultiplier; 
 
   earthOrbitAngle += delta * BASE_ORBIT_SPEED * earthOrbitSpeedMultiplier; 
-  earthGroup.position.x = Math.cos(earthOrbitAngle) * ORBIT_RADIUS;
-  earthGroup.position.z = Math.sin(earthOrbitAngle) * ORBIT_RADIUS;
+  earthSystem.position.x = Math.cos(earthOrbitAngle) * ORBIT_RADIUS;
+  earthSystem.position.z = Math.sin(earthOrbitAngle) * ORBIT_RADIUS;
 
-  const dx = earthGroup.position.x - previousEarthPosition.x;
-  const dz = earthGroup.position.z - previousEarthPosition.z;
+  moonOrbitAngle -= delta * BASE_MOON_SPEED * earthOrbitSpeedMultiplier; 
+  moon.position.set(Math.cos(moonOrbitAngle) * MOON_ORBIT_R, 0, Math.sin(moonOrbitAngle) * MOON_ORBIT_R);
+  moon.rotation.y = moonOrbitAngle; 
+
+  const dx = earthSystem.position.x - previousEarthPosition.x;
+  const dz = earthSystem.position.z - previousEarthPosition.z;
   
-  // LOGIC ĐIỀU KHIỂN RIÊNG CHO MÔI TRƯỜNG VR
   if (renderer.xr.isPresenting) {
     const session = renderer.xr.getSession();
     if (session && session.inputSources) {
       for (const source of session.inputSources) {
         if (source.gamepad && source.gamepad.axes) {
-          // Lấy giá trị gạt Joystick trái/phải (X) và Lên/xuống (Y)
           const stickX = source.gamepad.axes.length > 2 ? source.gamepad.axes[2] : source.gamepad.axes[0];
           const stickY = source.gamepad.axes.length > 3 ? source.gamepad.axes[3] : source.gamepad.axes[1];
 
-          if (Math.abs(stickX) > 0.1) vrOrbitAngle -= stickX * 0.03; // Quét trái/phải quanh Trái Đất
-          if (Math.abs(stickY) > 0.1) vrDistance += stickY * 0.05;   // Đẩy lên/xuống để Zoom in/out
+          if (Math.abs(stickX) > 0.1) vrOrbitAngle -= stickX * 0.03; 
+          if (Math.abs(stickY) > 0.1) vrDistance += stickY * 0.05;   
         }
       }
     }
     
-    // Giới hạn không cho camera đâm vào tâm Trái Đất hoặc bay quá xa
     vrDistance = THREE.MathUtils.clamp(vrDistance, 1.5, 12.0);
 
-    // Tính toán tọa độ vệ tinh xoay quanh Trái Đất (Dolly)
-    vrDolly.position.copy(earthGroup.position);
+    vrDolly.position.copy(earthSystem.position);
     vrDolly.rotation.y = vrOrbitAngle;
     vrCameraOffset.position.set(0, 0, vrDistance);
 
   } else {
-    // Nếu chơi trên Desktop, dùng chuột bình thường
     camera.position.x += dx;
     camera.position.z += dz;
-    controls.target.copy(earthGroup.position);
+    controls.target.copy(earthSystem.position);
   }
   
-  previousEarthPosition.copy(earthGroup.position);
+  previousEarthPosition.copy(earthSystem.position);
   
   const cameraWorldPos = new THREE.Vector3();
   camera.getWorldPosition(cameraWorldPos);
-  universeGroup.position.copy(cameraWorldPos);
+  universeGroup.position.copy(cameraWorldPos); 
 
-  const sunDirW = sunGroup.position.clone().sub(earthGroup.position).normalize();
+  const sunDirW = sunGroup.position.clone().sub(earthSystem.position).normalize();
   const invN = new THREE.Matrix3().getNormalMatrix(earthGroup.matrixWorld).invert();
   const sunDirL = sunDirW.clone().applyMatrix3(invN).normalize();
   atmosMat.uniforms.sunDirection.value.copy(sunDirL);
@@ -484,7 +601,6 @@ renderer.setAnimationLoop(() => {
   renderer.render(scene, camera);
   
   document.getElementById('hudAltitude').textContent = Number((camera.position.length() - 1) * 6371).toFixed(0) + ' KM';
-  document.getElementById('hudZoom').textContent = Number(camera.position.length()).toFixed(1) + 'X';
 });
 
 window.addEventListener('resize', () => {
