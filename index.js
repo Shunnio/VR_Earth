@@ -16,8 +16,8 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.shadowMap.enabled = false;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.1; 
-renderer.xr.enabled = true; 
+renderer.toneMappingExposure = 1.1;
+renderer.xr.enabled = true;
 document.body.style.cssText = 'margin:0;overflow:hidden;background:#000;';
 document.body.appendChild(renderer.domElement);
 
@@ -31,17 +31,17 @@ controls.maxDistance = 30;
 
 // Khai báo TextureLoader kèm cấp quyền CORS cho ảnh Wikipedia
 const loader = new THREE.TextureLoader();
-loader.setCrossOrigin('anonymous'); 
+loader.setCrossOrigin('anonymous');
 const starTexture = loader.load('./textures/stars/circle.png');
 
 // ─── TRỤC QUAY VR DOLLY & TAY CẦM META QUEST 3 ────────────────
 const vrDolly = new THREE.Group();
 const vrCameraOffset = new THREE.Group();
-vrDolly.add(vrCameraOffset); 
+vrDolly.add(vrCameraOffset);
 scene.add(vrDolly);
 
-let vrOrbitAngle = -Math.PI / 4; 
-let vrDistance = 5.0; 
+let vrOrbitAngle = -Math.PI / 4;
+let vrDistance = 5.0;
 
 const controller1 = renderer.xr.getController(0);
 const controller2 = renderer.xr.getController(1);
@@ -74,9 +74,9 @@ scene.add(universeGroup);
 
 // Bầu trời Ngân Hà 360 độ
 const starBgGeo = new THREE.SphereGeometry(600, 64, 64);
-const starBgMat = new THREE.MeshBasicMaterial({ 
-  map: loader.load('./textures/07_milkyway.jpg'), 
-  side: THREE.BackSide, color: 0xffffff, depthWrite: false 
+const starBgMat = new THREE.MeshBasicMaterial({
+  map: loader.load('./textures/07_milkyway.jpg'),
+  side: THREE.BackSide, color: 0xffffff, depthWrite: false
 });
 const skybox = new THREE.Mesh(starBgGeo, starBgMat);
 skybox.rotation.x = Math.PI / 4; skybox.rotation.y = -Math.PI / 6;
@@ -117,7 +117,7 @@ for (let i = 0; i < 7; i++) {
 // ─── 3. MẶT TRỜI (KHÔI PHỤC SHADER PLASMA ĐÃ KHAI BÁO CHUẨN) ──
 const sunGroup = new THREE.Group();
 scene.add(sunGroup);
-const SUN_R = 3.0; 
+const SUN_R = 3.0;
 
 // KHAI BÁO sunUniforms Ở ĐÂY ĐỂ TRÁNH LỖI "IS NOT DEFINED"
 const sunUniforms = { time: { value: 0 } };
@@ -166,21 +166,22 @@ const haloSprite2 = new THREE.Sprite(new THREE.SpriteMaterial({ map: haloTexture
 haloSprite2.scale.set(SUN_R * 5.0, SUN_R * 5.0, 1); sunGroup.add(haloSprite2);
 
 // ─── 4. HỆ THỐNG TRÁI ĐẤT & MẶT TRĂNG ─────────────────────────
-const earthSystem = new THREE.Group(); 
+const earthSystem = new THREE.Group();
 scene.add(earthSystem);
 
-const ORBIT_RADIUS = 25.0; earthSystem.position.set(ORBIT_RADIUS, 0, 0); 
+const ORBIT_RADIUS = 25.0; earthSystem.position.set(ORBIT_RADIUS, 0, 0);
 
 const sunLight = new THREE.DirectionalLight(0xffffff, 1.5);
 sunLight.position.copy(sunGroup.position); sunLight.target = earthSystem;
 scene.add(sunLight); scene.add(new THREE.DirectionalLight(0x2244aa, 0.1)); scene.add(new THREE.AmbientLight(0x334466, 0.15));
 
-const earthGroup = new THREE.Group(); earthGroup.rotation.z = THREE.MathUtils.degToRad(23.5); earthSystem.add(earthGroup); 
+const earthGroup = new THREE.Group(); earthGroup.rotation.z = THREE.MathUtils.degToRad(23.5); earthSystem.add(earthGroup);
 const EARTH_R = 1.0;
+
 const earth = new THREE.Mesh(
   new THREE.SphereGeometry(EARTH_R, 128, 128),
   new THREE.MeshPhongMaterial({
-    map: loader.load('./textures/00_earthmap8k.jpg'), 
+    map: loader.load('./textures/00_earthmap8k.jpg'),
     displacementMap: loader.load('./textures/01_earthbump1k.jpg'), displacementScale: 0.04,
     specularMap: loader.load('./textures/02_earthspec1k.jpg'), specular: new THREE.Color(0x55aacc), shininess: 20,
   })
@@ -188,33 +189,189 @@ const earth = new THREE.Mesh(
 earthGroup.add(earth);
 
 const cityLightsMat = new THREE.ShaderMaterial({
-  uniforms: { cityLightsMap: { value: loader.load('./textures/03_earthlights1k.jpg') }, sunDirection:  { value: new THREE.Vector3() } },
+  uniforms: { cityLightsMap: { value: loader.load('./textures/03_earthlights1k.jpg') }, sunDirection: { value: new THREE.Vector3() }, uOpacity: { value: 1.0 } },
   vertexShader: `varying vec2 vUv; varying vec3 vNormal; void main(){ vUv=uv; vNormal=normalize(normalMatrix*normal); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
-  fragmentShader: `uniform sampler2D cityLightsMap; uniform vec3 sunDirection; varying vec2 vUv; varying vec3 vNormal; void main(){ float night=clamp(-dot(vNormal,sunDirection)*3.0,0.0,1.0); vec4 t=texture2D(cityLightsMap,vUv); gl_FragColor=vec4(t.rgb*night*1.2, night*t.r); }`,
+  fragmentShader: `uniform sampler2D cityLightsMap; uniform vec3 sunDirection; uniform float uOpacity; varying vec2 vUv; varying vec3 vNormal; void main(){ float night=clamp(-dot(vNormal,sunDirection)*3.0,0.0,1.0); vec4 t=texture2D(cityLightsMap,vUv); gl_FragColor=vec4(t.rgb*night*1.2, night*t.r*uOpacity); }`,
   blending: THREE.AdditiveBlending, transparent: true, depthWrite: false,
 });
-earthGroup.add(new THREE.Mesh(new THREE.SphereGeometry(EARTH_R+0.041,128,128), cityLightsMat));
+earthGroup.add(new THREE.Mesh(new THREE.SphereGeometry(EARTH_R + 0.041, 128, 128), cityLightsMat));
 
 const atmosMat = new THREE.ShaderMaterial({
-  uniforms: { sunDirection: { value: new THREE.Vector3(1,0,0) } },
+  uniforms: { sunDirection: { value: new THREE.Vector3(1, 0, 0) }, uOpacity: { value: 1.0 } },
   vertexShader: `varying vec3 vNormal; varying vec3 vWorldPos; void main(){ vNormal=normalize(normalMatrix*normal); vWorldPos=(modelMatrix*vec4(position,1.0)).xyz; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }`,
   fragmentShader: `
-    uniform vec3 sunDirection; varying vec3 vNormal; varying vec3 vWorldPos;
+    uniform vec3 sunDirection; uniform float uOpacity; varying vec3 vNormal; varying vec3 vWorldPos;
     void main(){
       vec3 viewDir=normalize(cameraPosition-vWorldPos); float fresnel=pow(1.0-max(dot(vNormal,viewDir),0.0),3.5);
       float sunFactor=clamp(dot(vNormal,sunDirection)*0.6+0.4,0.0,1.0); vec3 color=mix(vec3(0.9,0.45,0.15), vec3(0.25,0.55,1.0), smoothstep(0.2,0.7,sunFactor));
-      gl_FragColor=vec4(color, fresnel*0.4*sunFactor);
+      gl_FragColor=vec4(color, fresnel*0.4*sunFactor*uOpacity);
     }
   `,
   blending: THREE.AdditiveBlending, transparent: true, side: THREE.FrontSide, depthWrite: false,
 });
-earthGroup.add(new THREE.Mesh(new THREE.SphereGeometry(EARTH_R*1.06,64,64), atmosMat));
+earthGroup.add(new THREE.Mesh(new THREE.SphereGeometry(EARTH_R * 1.06, 64, 64), atmosMat));
 
 const clouds = new THREE.Mesh(
-  new THREE.SphereGeometry(EARTH_R*1.05, 64, 64),
+  new THREE.SphereGeometry(EARTH_R * 1.05, 64, 64),
   new THREE.MeshPhongMaterial({ map: loader.load('./textures/04_earthcloudmap.jpg'), transparent: true, opacity: 0.6, depthWrite: false, blending: THREE.AdditiveBlending })
 );
 earthGroup.add(clouds);
+
+// ═══════════════════════════════════════════════════════════════════
+// ─── EXPLODE VIEW – VỎ RỖNG CÓ ĐỘ DÀY (Hollow Shells) ─────────
+// Mỗi lớp = nửa cầu ngoài + nửa cầu trong (BackSide) + vành khuyên
+// Khi bật Explode, earth/clouds/atmos ẩn đi, các shell trượt sang phải
+// ═══════════════════════════════════════════════════════════════════
+
+// Hàm tạo nhãn chú thích 3D
+// Hàm tạo nhãn chú thích 3D CHI TIẾT (tiếng Việt)
+function createLayerLabel(info, color) {
+  const W = 440, H = 250;
+  const labelCanvas = document.createElement('canvas');
+  labelCanvas.width = W; labelCanvas.height = H;
+  const ctx = labelCanvas.getContext('2d');
+  ctx.fillStyle = 'rgba(0, 6, 20, 0.85)';
+  ctx.beginPath(); ctx.roundRect(0, 0, W, H, 12); ctx.fill();
+  ctx.strokeStyle = color; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.roundRect(1, 1, W - 2, H - 2, 12); ctx.stroke();
+  ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.globalAlpha = 0.3;
+  ctx.beginPath(); ctx.moveTo(24, 74); ctx.lineTo(W - 14, 74); ctx.stroke();
+  ctx.globalAlpha = 1.0;
+  ctx.fillStyle = color; ctx.font = 'bold 30px sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText(info.nameVi, 24, 20);
+  ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.font = '17px sans-serif';
+  ctx.fillText(info.nameEn, 24, 52);
+  const rows = [
+    ['Độ sâu:', info.depth],
+    ['Nhiệt độ:', info.temp],
+    ['Thành phần:', info.composition],
+    ['Trạng thái:', info.state],
+  ];
+  rows.forEach(([lbl, val], i) => {
+    const y = 86 + i * 38;
+    ctx.fillStyle = 'rgba(160,210,255,0.7)'; ctx.font = 'bold 19px sans-serif';
+    ctx.fillText(lbl, 24, y);
+    ctx.fillStyle = '#fff'; ctx.font = '19px sans-serif';
+    ctx.fillText(val, 145, y);
+  });
+  const tex = new THREE.CanvasTexture(labelCanvas);
+  const spriteMat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false });
+  const sprite = new THREE.Sprite(spriteMat);
+  sprite.scale.set(0.78, 0.45, 1);
+  return sprite;
+}
+
+// Wrapper group
+const explodeSystem = new THREE.Group();
+earthGroup.add(explodeSystem);
+const explodeLayers = [];
+
+// Dữ liệu 5 lớp VỎ RỖNG với thông tin chi tiết
+const shellConfigs = [
+  {
+    nameVi: 'LỚP VỎ', nameEn: 'Crust',
+    depth: '0 – 35 km', temp: '~20°C → 500°C',
+    composition: 'Đá granit, bazan, trầm tích',
+    state: 'Rắn cứng',
+    outerR: EARTH_R * 1.0, innerR: EARTH_R * 0.95,
+    texture: './textures/00_earthmap8k.jpg', labelColor: '#88ccff',
+  },
+  {
+    nameVi: 'QUYỂN MANTI TRÊN', nameEn: 'Upper Mantle',
+    depth: '35 – 670 km', temp: '500°C → 900°C',
+    composition: 'Peridotit (olivin, pyroxen)',
+    state: 'Rắn dẻo (dòng đối lưu)',
+    outerR: EARTH_R * 0.95, innerR: EARTH_R * 0.82,
+    texture: './textures/upper_mantle.jpg', labelColor: '#dd7733',
+  },
+  {
+    nameVi: 'QUYỂN MANTI DƯỚI', nameEn: 'Lower Mantle',
+    depth: '670 – 2.891 km', temp: '900°C → 2.200°C',
+    composition: 'Silicat giàu sắt-magiê',
+    state: 'Rắn chịu áp suất cực lớn',
+    outerR: EARTH_R * 0.82, innerR: EARTH_R * 0.546,
+    texture: './textures/lower_mantle.jpg', labelColor: '#cc3311',
+  },
+  {
+    nameVi: 'LÕI NGOÀI', nameEn: 'Outer Core',
+    depth: '2.891 – 5.150 km', temp: '2.200°C → 5.000°C',
+    composition: 'Sắt-Niken nóng chảy',
+    state: 'Lỏng (tạo từ trường Trái Đất)',
+    outerR: EARTH_R * 0.546, innerR: EARTH_R * 0.192,
+    texture: './textures/outer_core.jpg', labelColor: '#ff8800',
+  },
+  {
+    nameVi: 'LÕI TRONG', nameEn: 'Inner Core',
+    depth: '5.150 – 6.371 km', temp: '~5.400°C',
+    composition: 'Sắt-Niken kết tinh',
+    state: 'Rắn (áp suất 360 GPa)',
+    outerR: EARTH_R * 0.192, innerR: 0,
+    texture: './textures/inner_core.jpg', labelColor: '#ffffff',
+  },
+];
+
+// Tính vị trí explode: mỗi lớp chạm vào mép phải (tâm) của lớp trước
+let cumX = 0;
+shellConfigs.forEach((cfg, idx) => {
+  if (idx > 0) cumX += cfg.outerR;
+  cfg.explodeX = cumX;
+  if (idx > 0) cumX += 0.05;
+});
+
+shellConfigs.forEach((cfg, idx) => {
+  const layerGroup = new THREE.Group();
+  const isInnerCore = (cfg.innerR === 0);
+  const tex = loader.load(cfg.texture);
+
+  if (isInnerCore) {
+    const sphere = new THREE.Mesh(
+      new THREE.SphereGeometry(cfg.outerR, 64, 64),
+      new THREE.MeshPhongMaterial({
+        map: tex, shininess: 15,
+        emissive: new THREE.Color(0xffdd88), emissiveIntensity: 0.6,
+      })
+    );
+    layerGroup.add(sphere);
+    const glowGeo = new THREE.SphereGeometry(cfg.outerR * 1.3, 32, 32);
+    const glowMat = new THREE.MeshBasicMaterial({ color: 0xffeeaa, transparent: true, opacity: 0.4, blending: THREE.AdditiveBlending, depthWrite: false });
+    layerGroup.add(new THREE.Mesh(glowGeo, glowMat));
+  } else {
+    // 1. Nửa cầu NGOÀI
+    const outerHemiGeo = new THREE.SphereGeometry(cfg.outerR, 64, 64, 3 * Math.PI / 2, Math.PI);
+    layerGroup.add(new THREE.Mesh(outerHemiGeo, new THREE.MeshPhongMaterial({ map: tex, shininess: 15, side: THREE.FrontSide })));
+    // 2. Nửa cầu TRONG
+    const innerHemiGeo = new THREE.SphereGeometry(cfg.innerR, 64, 64, 3 * Math.PI / 2, Math.PI);
+    layerGroup.add(new THREE.Mesh(innerHemiGeo, new THREE.MeshPhongMaterial({ map: tex, shininess: 10, side: THREE.BackSide })));
+    // 3. Vành khuyên
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(cfg.innerR, cfg.outerR, 128),
+      new THREE.MeshBasicMaterial({ map: tex, side: THREE.DoubleSide })
+    );
+    ring.rotation.y = Math.PI / 2;
+    ring.position.x = 0.001;
+    layerGroup.add(ring);
+  }
+
+  // Nhãn chú thích chi tiết (tiếng Việt)
+  const label = createLayerLabel(cfg, cfg.labelColor);
+  label.position.y = cfg.outerR + 0.35;
+  layerGroup.add(label);
+
+  // Lưu dữ liệu
+  layerGroup.userData = { targetX: cfg.explodeX };
+  explodeSystem.add(layerGroup);
+  explodeLayers.push(layerGroup);
+});
+
+// Ban đầu: ẩn toàn bộ explode system
+explodeSystem.visible = false;
+
+// Nhóm các mesh cần ẩn khi explode (earth gốc, mây, khí quyển, đèn thành phố)
+const earthSurfaceMeshes = [];
+earthGroup.children.forEach(child => {
+  if (child !== explodeSystem) earthSurfaceMeshes.push(child);
+});
 
 const moonOrbitGroup = new THREE.Group(); moonOrbitGroup.rotation.x = THREE.MathUtils.degToRad(5.14); earthSystem.add(moonOrbitGroup);
 const MOON_ORBIT_R = 4.0;
@@ -238,14 +395,14 @@ const textCtx = textCanvas.getContext('2d'); const textTexture = new THREE.Canva
 const textMesh = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.8), new THREE.MeshBasicMaterial({ map: textTexture, transparent: true, side: THREE.DoubleSide, opacity: 0.9 }));
 textMesh.position.y = -0.3; infoPanel3D.add(textMesh);
 
-let activePoint = null; 
+let activePoint = null;
 
 function show3DPanel(point) {
-  activePoint = point; 
+  activePoint = point;
   const locInfo = point.userData;
-  
+
   // Tải ảnh Landmark
-  loader.load(locInfo.img, function(tex) {
+  loader.load(locInfo.img, function (tex) {
     landmarkMesh.material.map = tex;
     landmarkMesh.material.needsUpdate = true;
   });
@@ -253,16 +410,16 @@ function show3DPanel(point) {
   // Xóa và vẽ lại Canvas Text
   textCtx.clearRect(0, 0, textCanvas.width, textCanvas.height);
   const grad = textCtx.createLinearGradient(0, 0, 0, 512);
-  grad.addColorStop(0, 'rgba(0, 15, 30, 0.85)'); 
+  grad.addColorStop(0, 'rgba(0, 15, 30, 0.85)');
   grad.addColorStop(1, 'rgba(0, 40, 80, 0.95)');
   textCtx.fillStyle = grad; textCtx.fillRect(0, 0, 1024, 512);
   textCtx.strokeStyle = '#55aaff'; textCtx.lineWidth = 4; textCtx.strokeRect(2, 2, 1020, 508);
 
   // Tiêu đề (ĐÃ BỎ CHỮ "TARGET")
-  textCtx.fillStyle = '#55ff55'; textCtx.font = 'bold 52px sans-serif'; 
+  textCtx.fillStyle = '#55ff55'; textCtx.font = 'bold 52px sans-serif';
   textCtx.fillText(`${locInfo.name.toUpperCase()}`, 30, 65);
-  
-  textCtx.fillStyle = '#ffffff'; textCtx.font = '28px sans-serif'; 
+
+  textCtx.fillStyle = '#ffffff'; textCtx.font = '28px sans-serif';
   textCtx.fillText(`Population: ${locInfo.pop}   |   Area: ${locInfo.area}`, 30, 115);
 
   // Hàm tự động ngắt dòng thông minh
@@ -270,10 +427,10 @@ function show3DPanel(point) {
     const words = text.split(' '); let line = '';
     for (let n = 0; n < words.length; n++) {
       const testLine = line + words[n] + ' ';
-      if (context.measureText(testLine).width > maxWidth && n > 0) { 
-        context.fillText(line, x, y); line = words[n] + ' '; y += lineHeight; 
+      if (context.measureText(testLine).width > maxWidth && n > 0) {
+        context.fillText(line, x, y); line = words[n] + ' '; y += lineHeight;
       } else { line = testLine; }
-    } 
+    }
     context.fillText(line, x, y);
     return y + lineHeight;
   }
@@ -302,54 +459,78 @@ function latLonToVector3(lat, lon, radius) {
 }
 
 const locations = [
-  { lat: 14.0583, lon: 108.2772, name: 'Việt Nam', cCode: 'vn', pop: '102.2 Triệu', area: '331,212 km²', 
-    econ: 'Là một nền kinh tế phát triển cực kỳ nhanh chóng tại Đông Nam Á. Đang chuyển dịch mạnh mẽ sang công nghiệp sản xuất điện tử, phần mềm và chip bán dẫn toàn cầu.', 
-    cult: 'Sở hữu di sản văn hóa đồ sộ với 54 dân tộc anh em. Nền ẩm thực vô cùng đa dạng, vươn tầm thế giới (Phở, Bánh Mì) cùng các kỳ quan thiên nhiên ngoạn mục.', 
-    img: './img/HaLongBay.jpg' },
-  { lat: 36.2048, lon: 138.2529, name: 'Nhật Bản', cCode: 'jp', pop: '122.4 Triệu', area: '377,975 km²', 
-    econ: 'Cường quốc kinh tế thứ 4 thế giới, đi đầu trong lĩnh vực công nghệ cao, sản xuất ô tô và robot. Hiện đang thúc đẩy mạnh mẽ mô hình siêu thông minh "Xã hội 5.0".', 
-    cult: 'Sự giao thoa hoàn hảo giữa tín ngưỡng Thần Đạo truyền thống và văn hóa đại chúng cực thịnh. Đất nước nổi tiếng toàn cầu với ngành công nghiệp Anime và Manga.', 
-    img: './img/MountFuji.jpg' },
-  { lat: 35.9078, lon: 127.7669, name: 'Hàn Quốc', cCode: 'kr', pop: '51.6 Triệu', area: '100,210 km²', 
-    econ: 'Nền kinh tế định hướng xuất khẩu, được dẫn dắt bởi các tập đoàn Chaebol khổng lồ. Thống trị thị trường toàn cầu về sản xuất chip nhớ, màn hình và đóng tàu.', 
-    cult: 'Làn sóng Hallyu (bao gồm âm nhạc K-Pop, phim truyền hình K-Drama) lan tỏa sức ảnh hưởng mạnh mẽ trên toàn hành tinh, kết hợp nền tảng Nho giáo chú trọng giáo dục.', 
-    img: './img/Seoul.jpg' },
-  { lat: 37.0902, lon: -95.7129, name: 'Hoa Kỳ', cCode: 'us', pop: '349.0 Triệu', area: '9.83 Triệu km²', 
-    econ: 'Nền kinh tế lớn nhất thế giới tính theo GDP danh nghĩa. Đóng vai trò là trung tâm tài chính toàn cầu, dẫn dắt các cuộc cách mạng về trí tuệ nhân tạo (AI) và vũ trụ.', 
-    cult: 'Là một hợp chủng quốc đa sắc tộc với tinh thần đề cao tự do. Xuất khẩu quyền lực mềm văn hóa mạnh mẽ nhất thông qua điện ảnh Hollywood và công nghiệp âm nhạc.', 
-    img: './img/USA.jpg' },
-  { lat: 35.8617, lon: 104.1954, name: 'Trung Quốc', cCode: 'cn', pop: '1.41 Tỷ', area: '9.59 Triệu km²', 
-    econ: 'Nền kinh tế lớn thứ hai toàn cầu, được mệnh danh là công xưởng của thế giới. Đang vươn lên thống trị tuyệt đối trong ngành công nghiệp xe điện (EV) và năng lượng mới.', 
-    cult: 'Cái nôi của nền văn minh phương Đông liên tục hơn 5000 năm. Sở hữu di sản Nho giáo sâu sắc, kiến trúc vĩ đại và nền công nghiệp giải trí nội địa khổng lồ.', 
-    img: './img/TheGreatWall.jpg' },
-  { lat: 20.5937, lon: 78.9629, name: 'Ấn Độ', cCode: 'in', pop: '1.45 Tỷ', area: '3.28 Triệu km²', 
-    econ: 'Nền kinh tế phát triển nhanh nhất trong nhóm G20. Được biết đến như cường quốc về gia công phần mềm IT, công nghệ sinh học và ngành công nghiệp dược phẩm.', 
-    cult: 'Cái nôi của các tôn giáo lớn như Ấn Độ giáo và Phật giáo. Nền văn hóa vô cùng đa dạng về ngôn ngữ, phong tục và sức hút mãnh liệt từ điện ảnh Bollywood.', 
-    img: './img/India.jpg' },
-  { lat: 46.2276, lon: 2.2137, name: 'Pháp', cCode: 'fr', pop: '68.0 Triệu', area: '551,695 km²', 
-    econ: 'Đóng vai trò trụ cột của Liên minh Châu Âu. Thống trị toàn cầu trong lĩnh vực thiết kế thời trang, hàng xa xỉ, mỹ phẩm, du lịch và năng lượng hạt nhân tiên tiến.', 
-    cult: 'Được tôn vinh là Kinh đô ánh sáng và sự lãng mạn. Là cái nôi của triết học hiện đại, nghệ thuật, điện ảnh, và là biểu tượng của tinh hoa văn hóa ẩm thực cao cấp.', 
-    img: './img/Paris.jpg' },
-  { lat: 55.3781, lon: -3.4360, name: 'Anh Quốc', cCode: 'gb', pop: '67.3 Triệu', area: '242,495 km²', 
-    econ: 'Thủ đô London duy trì vị thế là trung tâm tài chính và dịch vụ hàng đầu thế giới. Nền kinh tế có thế mạnh vượt trội về Fintech, giáo dục và nghiên cứu khoa học.', 
-    cult: 'Nguồn cội của ngôn ngữ toàn cầu và nơi khởi nguồn Cách mạng Công nghiệp. Sở hữu lịch sử Hoàng gia lâu đời, nền văn học đồ sộ và nền âm nhạc tiên phong.', 
-    img: './img/London.jpg' },
-  { lat: 51.1657, lon: 10.4515, name: 'Đức', cCode: 'de', pop: '83.5 Triệu', area: '357,022 km²', 
-    econ: 'Đầu tàu và là trái tim kinh tế của Châu Âu. Mang thế mạnh tuyệt đối về kỹ thuật cơ khí chính xác, sản xuất ô tô hạng sang và ngành công nghiệp hóa chất thế giới.', 
-    cult: 'Được mệnh danh là xứ sở của những nhà tư tưởng, triết gia và nhạc sĩ vĩ đại (Beethoven, Kant). Nổi tiếng với lối sống kỷ luật và bảo tồn xuất sắc văn hóa địa phương.', 
-    img: './img/Germany.jpg' },
-  { lat: -14.2350, lon: -51.9253, name: 'Brazil', cCode: 'br', pop: '218.8 Triệu', area: '8.51 Triệu km²', 
-    econ: 'Nền kinh tế lớn nhất khu vực Nam Mỹ. Đóng vai trò siêu cường về xuất khẩu nông sản (đậu nành, cà phê) và dẫn đầu thế giới về khai thác quặng khoáng sản.', 
-    cult: 'Sự pha trộn rực rỡ và bùng nổ giữa văn hóa bản địa, Châu Phi và Bồ Đào Nha. Nổi tiếng toàn cầu với vũ điệu Samba cuồng nhiệt và tình yêu bóng đá mãnh liệt.', 
-    img: './img/Brazil.jpg' },
-  { lat: -25.2744, lon: 133.7751, name: 'Úc', cCode: 'au', pop: '27.4 Triệu', area: '7.69 Triệu km²', 
-    econ: 'Quốc gia có GDP bình quân đầu người cao hàng đầu. Nền kinh tế phụ thuộc mạnh mẽ vào việc xuất khẩu dồi dào tài nguyên khoáng sản, giáo dục và du lịch.', 
-    cult: 'Nổi bật với lối sống ngoài trời tự do và phóng khoáng. Nền văn hóa tôn trọng sự đa nguyên và luôn nỗ lực bảo tồn di sản độc đáo của người bản địa (Aboriginal).', 
-    img: './img/Sydney.jpg' },
-  { lat: -30.5595, lon: 22.9375, name: 'Nam Phi', cCode: 'za', pop: '61.0 Triệu', area: '1.22 Triệu km²', 
-    econ: 'Quốc gia công nghiệp hóa và phát triển nhất lục địa Châu Phi. Chiếm ưu thế lớn trên thị trường toàn cầu về khai thác và xuất khẩu kim loại quý như vàng, bạch kim.', 
-    cult: 'Được thế giới vinh danh là "Quốc gia Cầu vồng". Thể hiện sự kiên cường sâu sắc và tinh thần hòa giải vĩ đại sau quá trình xóa bỏ chế độ phân biệt chủng tộc Apartheid.', 
-    img: './img/SouthAfrica.jpg' }
+  {
+    lat: 14.0583, lon: 108.2772, name: 'Việt Nam', cCode: 'vn', pop: '102.2 Triệu', area: '331,212 km²',
+    econ: 'Là một nền kinh tế phát triển cực kỳ nhanh chóng tại Đông Nam Á. Đang chuyển dịch mạnh mẽ sang công nghiệp sản xuất điện tử, phần mềm và chip bán dẫn toàn cầu.',
+    cult: 'Sở hữu di sản văn hóa đồ sộ với 54 dân tộc anh em. Nền ẩm thực vô cùng đa dạng, vươn tầm thế giới (Phở, Bánh Mì) cùng các kỳ quan thiên nhiên ngoạn mục.',
+    img: './img/HaLongBay.jpg'
+  },
+  {
+    lat: 36.2048, lon: 138.2529, name: 'Nhật Bản', cCode: 'jp', pop: '122.4 Triệu', area: '377,975 km²',
+    econ: 'Cường quốc kinh tế thứ 4 thế giới, đi đầu trong lĩnh vực công nghệ cao, sản xuất ô tô và robot. Hiện đang thúc đẩy mạnh mẽ mô hình siêu thông minh "Xã hội 5.0".',
+    cult: 'Sự giao thoa hoàn hảo giữa tín ngưỡng Thần Đạo truyền thống và văn hóa đại chúng cực thịnh. Đất nước nổi tiếng toàn cầu với ngành công nghiệp Anime và Manga.',
+    img: './img/MountFuji.jpg'
+  },
+  {
+    lat: 35.9078, lon: 127.7669, name: 'Hàn Quốc', cCode: 'kr', pop: '51.6 Triệu', area: '100,210 km²',
+    econ: 'Nền kinh tế định hướng xuất khẩu, được dẫn dắt bởi các tập đoàn Chaebol khổng lồ. Thống trị thị trường toàn cầu về sản xuất chip nhớ, màn hình và đóng tàu.',
+    cult: 'Làn sóng Hallyu (bao gồm âm nhạc K-Pop, phim truyền hình K-Drama) lan tỏa sức ảnh hưởng mạnh mẽ trên toàn hành tinh, kết hợp nền tảng Nho giáo chú trọng giáo dục.',
+    img: './img/Seoul.jpg'
+  },
+  {
+    lat: 37.0902, lon: -95.7129, name: 'Hoa Kỳ', cCode: 'us', pop: '349.0 Triệu', area: '9.83 Triệu km²',
+    econ: 'Nền kinh tế lớn nhất thế giới tính theo GDP danh nghĩa. Đóng vai trò là trung tâm tài chính toàn cầu, dẫn dắt các cuộc cách mạng về trí tuệ nhân tạo (AI) và vũ trụ.',
+    cult: 'Là một hợp chủng quốc đa sắc tộc với tinh thần đề cao tự do. Xuất khẩu quyền lực mềm văn hóa mạnh mẽ nhất thông qua điện ảnh Hollywood và công nghiệp âm nhạc.',
+    img: './img/USA.jpg'
+  },
+  {
+    lat: 35.8617, lon: 104.1954, name: 'Trung Quốc', cCode: 'cn', pop: '1.41 Tỷ', area: '9.59 Triệu km²',
+    econ: 'Nền kinh tế lớn thứ hai toàn cầu, được mệnh danh là công xưởng của thế giới. Đang vươn lên thống trị tuyệt đối trong ngành công nghiệp xe điện (EV) và năng lượng mới.',
+    cult: 'Cái nôi của nền văn minh phương Đông liên tục hơn 5000 năm. Sở hữu di sản Nho giáo sâu sắc, kiến trúc vĩ đại và nền công nghiệp giải trí nội địa khổng lồ.',
+    img: './img/TheGreatWall.jpg'
+  },
+  {
+    lat: 20.5937, lon: 78.9629, name: 'Ấn Độ', cCode: 'in', pop: '1.45 Tỷ', area: '3.28 Triệu km²',
+    econ: 'Nền kinh tế phát triển nhanh nhất trong nhóm G20. Được biết đến như cường quốc về gia công phần mềm IT, công nghệ sinh học và ngành công nghiệp dược phẩm.',
+    cult: 'Cái nôi của các tôn giáo lớn như Ấn Độ giáo và Phật giáo. Nền văn hóa vô cùng đa dạng về ngôn ngữ, phong tục và sức hút mãnh liệt từ điện ảnh Bollywood.',
+    img: './img/India.jpg'
+  },
+  {
+    lat: 46.2276, lon: 2.2137, name: 'Pháp', cCode: 'fr', pop: '68.0 Triệu', area: '551,695 km²',
+    econ: 'Đóng vai trò trụ cột của Liên minh Châu Âu. Thống trị toàn cầu trong lĩnh vực thiết kế thời trang, hàng xa xỉ, mỹ phẩm, du lịch và năng lượng hạt nhân tiên tiến.',
+    cult: 'Được tôn vinh là Kinh đô ánh sáng và sự lãng mạn. Là cái nôi của triết học hiện đại, nghệ thuật, điện ảnh, và là biểu tượng của tinh hoa văn hóa ẩm thực cao cấp.',
+    img: './img/Paris.jpg'
+  },
+  {
+    lat: 55.3781, lon: -3.4360, name: 'Anh Quốc', cCode: 'gb', pop: '67.3 Triệu', area: '242,495 km²',
+    econ: 'Thủ đô London duy trì vị thế là trung tâm tài chính và dịch vụ hàng đầu thế giới. Nền kinh tế có thế mạnh vượt trội về Fintech, giáo dục và nghiên cứu khoa học.',
+    cult: 'Nguồn cội của ngôn ngữ toàn cầu và nơi khởi nguồn Cách mạng Công nghiệp. Sở hữu lịch sử Hoàng gia lâu đời, nền văn học đồ sộ và nền âm nhạc tiên phong.',
+    img: './img/London.jpg'
+  },
+  {
+    lat: 51.1657, lon: 10.4515, name: 'Đức', cCode: 'de', pop: '83.5 Triệu', area: '357,022 km²',
+    econ: 'Đầu tàu và là trái tim kinh tế của Châu Âu. Mang thế mạnh tuyệt đối về kỹ thuật cơ khí chính xác, sản xuất ô tô hạng sang và ngành công nghiệp hóa chất thế giới.',
+    cult: 'Được mệnh danh là xứ sở của những nhà tư tưởng, triết gia và nhạc sĩ vĩ đại (Beethoven, Kant). Nổi tiếng với lối sống kỷ luật và bảo tồn xuất sắc văn hóa địa phương.',
+    img: './img/Germany.jpg'
+  },
+  {
+    lat: -14.2350, lon: -51.9253, name: 'Brazil', cCode: 'br', pop: '218.8 Triệu', area: '8.51 Triệu km²',
+    econ: 'Nền kinh tế lớn nhất khu vực Nam Mỹ. Đóng vai trò siêu cường về xuất khẩu nông sản (đậu nành, cà phê) và dẫn đầu thế giới về khai thác quặng khoáng sản.',
+    cult: 'Sự pha trộn rực rỡ và bùng nổ giữa văn hóa bản địa, Châu Phi và Bồ Đào Nha. Nổi tiếng toàn cầu với vũ điệu Samba cuồng nhiệt và tình yêu bóng đá mãnh liệt.',
+    img: './img/Brazil.jpg'
+  },
+  {
+    lat: -25.2744, lon: 133.7751, name: 'Úc', cCode: 'au', pop: '27.4 Triệu', area: '7.69 Triệu km²',
+    econ: 'Quốc gia có GDP bình quân đầu người cao hàng đầu. Nền kinh tế phụ thuộc mạnh mẽ vào việc xuất khẩu dồi dào tài nguyên khoáng sản, giáo dục và du lịch.',
+    cult: 'Nổi bật với lối sống ngoài trời tự do và phóng khoáng. Nền văn hóa tôn trọng sự đa nguyên và luôn nỗ lực bảo tồn di sản độc đáo của người bản địa (Aboriginal).',
+    img: './img/Sydney.jpg'
+  },
+  {
+    lat: -30.5595, lon: 22.9375, name: 'Nam Phi', cCode: 'za', pop: '61.0 Triệu', area: '1.22 Triệu km²',
+    econ: 'Quốc gia công nghiệp hóa và phát triển nhất lục địa Châu Phi. Chiếm ưu thế lớn trên thị trường toàn cầu về khai thác và xuất khẩu kim loại quý như vàng, bạch kim.',
+    cult: 'Được thế giới vinh danh là "Quốc gia Cầu vồng". Thể hiện sự kiên cường sâu sắc và tinh thần hòa giải vĩ đại sau quá trình xóa bỏ chế độ phân biệt chủng tộc Apartheid.',
+    img: './img/SouthAfrica.jpg'
+  }
 ];
 
 const markerGeo = new THREE.SphereGeometry(0.015, 16, 16);
@@ -359,18 +540,18 @@ const glowMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true
 
 locations.forEach(loc => {
   const markerGroup = new THREE.Group();
-  markerGroup.position.copy(latLonToVector3(loc.lat, loc.lon, EARTH_R + 0.055)); 
-  
+  markerGroup.position.copy(latLonToVector3(loc.lat, loc.lon, EARTH_R + 0.055));
+
   const core = new THREE.Mesh(markerGeo, markerMat.clone());
   const glow = new THREE.Mesh(glowGeo, glowMat.clone());
   markerGroup.add(core); markerGroup.add(glow);
-  
+
   const flagTex = loader.load(`https://flagcdn.com/w160/${loc.cCode}.png`);
   const flagMat = new THREE.SpriteMaterial({ map: flagTex, transparent: true, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 });
   const flag = new THREE.Sprite(flagMat);
-  flag.scale.set(0.08, 0.052, 1); flag.position.set(0, 0.035, 0); 
+  flag.scale.set(0.08, 0.052, 1); flag.position.set(0, 0.035, 0);
   markerGroup.add(flag);
-  
+
   core.userData = { ...loc, flag: flag, glow: glow };
   earthGroup.add(markerGroup);
   interactionPoints.push(core);
@@ -386,7 +567,7 @@ const mouse = new THREE.Vector2();
 let hoveredPoint = null;
 
 window.addEventListener('mousemove', (e) => {
-  if(renderer.xr.isPresenting) return; 
+  if (renderer.xr.isPresenting) return;
   mouse.x = (e.clientX / window.innerWidth) * 2 - 1; mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
 });
 window.addEventListener('click', () => {
@@ -399,6 +580,19 @@ function onSelect() {
 }
 controller1.addEventListener('select', onSelect);
 controller2.addEventListener('select', onSelect);
+
+let isXRayMode = false;
+let xRayProgress = 0.0;
+
+// Lắng nghe ấn nút bóp hông (squeeze) trên tay cầm VR để bật/tắt
+function setupVRToggle() {
+  const onSqueeze = (event) => {
+    isXRayMode = !isXRayMode;
+  };
+  controller1.addEventListener('squeeze', onSqueeze);
+  controller2.addEventListener('squeeze', onSqueeze);
+}
+setupVRToggle();
 
 // ─── 8. GIAO DIỆN HUD 2D (Desktop) ─────────────────────────────
 const hud = document.createElement('div');
@@ -435,10 +629,24 @@ hud.innerHTML = `
         </div>
         <input type="range" id="rotSpeed" min="0" max="10" step="0.1" value="1">
       </div>
+      
+      <div style="margin-top:15px; border-top:1px solid rgba(80,160,255,0.3); padding-top:15px; text-align:center;">
+        <button id="toggleXRayBtn" style="background:#0033aa; color:#fff; border:1px solid #55aaff; padding:8px 12px; font-family:'Share Tech Mono'; border-radius:4px; cursor:pointer; font-weight:bold; width:100%; transition: 0.3s; box-shadow: 0 0 5px rgba(0,50,200,0.5);">
+          CROSS-SECTION: OFF
+        </button>
+      </div>
     </div>
   </div>
 `;
 document.body.appendChild(hud);
+
+document.getElementById('toggleXRayBtn').addEventListener('click', (e) => {
+  isXRayMode = !isXRayMode;
+  e.target.style.background = isXRayMode ? '#ff3300' : '#0033aa';
+  e.target.textContent = isXRayMode ? 'CROSS-SECTION: ON' : 'CROSS-SECTION: OFF';
+  e.target.style.boxShadow = isXRayMode ? '0 0 15px #ff3300' : '0 0 5px rgba(0,50,200,0.5)';
+  e.target.style.borderColor = isXRayMode ? '#ff9966' : '#55aaff';
+});
 
 document.getElementById('lightIntensity').addEventListener('input', (e) => {
   sunLight.intensity = parseFloat(e.target.value);
@@ -453,17 +661,17 @@ document.getElementById('rotSpeed').addEventListener('input', (e) => {
 
 // ─── 9. ANIMATION LOOP ────────────────────────────────────────
 const clock = new THREE.Clock();
-const BASE_ROTATION_SPEED = 0.03; 
-const BASE_ORBIT_SPEED = 0.005; 
-const BASE_MOON_SPEED = 0.02; 
+const BASE_ROTATION_SPEED = 0.03;
+const BASE_ORBIT_SPEED = 0.005;
+const BASE_MOON_SPEED = 0.02;
 
 let earthOrbitAngle = 0; let moonOrbitAngle = 0;
 
 renderer.setAnimationLoop(() => {
   const delta = clock.getDelta(); const time = clock.getElapsedTime();
-  starUniforms.time.value = time; sunUniforms.time.value = time; 
+  starUniforms.time.value = time; sunUniforms.time.value = time;
 
-  if (renderer.xr.isPresenting) { document.getElementById('desktopHUD').style.display = 'none'; } 
+  if (renderer.xr.isPresenting) { document.getElementById('desktopHUD').style.display = 'none'; }
   else { document.getElementById('desktopHUD').style.display = 'block'; }
 
   if (renderer.xr.isPresenting) {
@@ -505,11 +713,11 @@ renderer.setAnimationLoop(() => {
       m.timer -= delta;
       if (m.timer <= 0) {
         m.active = true; m.timer = 10 + Math.random() * 5; m.progress = 0;
-        const spawnCenter = camDir.clone().multiplyScalar(120); 
-        m.start.copy(spawnCenter).add(new THREE.Vector3((Math.random()-0.5)*200, (Math.random()-0.5)*200, (Math.random()-0.5)*200));
-        const flyDir = new THREE.Vector3((Math.random()-0.5), (Math.random()-0.5), (Math.random()-0.5)).normalize();
-        m.end.copy(m.start).add(flyDir.multiplyScalar(250)); 
-        m.mesh.position.copy(m.start); m.mesh.lookAt(m.start.clone().add(flyDir)); 
+        const spawnCenter = camDir.clone().multiplyScalar(120);
+        m.start.copy(spawnCenter).add(new THREE.Vector3((Math.random() - 0.5) * 200, (Math.random() - 0.5) * 200, (Math.random() - 0.5) * 200));
+        const flyDir = new THREE.Vector3((Math.random() - 0.5), (Math.random() - 0.5), (Math.random() - 0.5)).normalize();
+        m.end.copy(m.start).add(flyDir.multiplyScalar(250));
+        m.mesh.position.copy(m.start); m.mesh.lookAt(m.start.clone().add(flyDir));
       }
     } else {
       m.progress += delta * 1.5; m.mesh.position.lerpVectors(m.start, m.end, m.progress);
@@ -517,21 +725,87 @@ renderer.setAnimationLoop(() => {
       if (m.progress >= 1.0) { m.active = false; m.mesh.material.opacity = 0; }
     }
   });
-  
-  earthGroup.rotation.y += delta * BASE_ROTATION_SPEED * earthRotationSpeedMultiplier;
-  clouds.rotation.y += delta * (BASE_ROTATION_SPEED + 0.01) * earthRotationSpeedMultiplier; 
 
-  earthOrbitAngle += delta * BASE_ORBIT_SPEED * earthRotationSpeedMultiplier; 
+  earthGroup.rotation.y += delta * BASE_ROTATION_SPEED * earthRotationSpeedMultiplier;
+  clouds.rotation.y += delta * (BASE_ROTATION_SPEED + 0.01) * earthRotationSpeedMultiplier;
+
+  // ═══ EXPLODE VIEW: Animation tách lớp (SMOOTH CROSSFADE) ═══
+  const targetXRayProgress = isXRayMode ? 1.0 : 0.0;
+  xRayProgress += (targetXRayProgress - xRayProgress) * delta * 3.0;
+
+  // Crossfade cực nhanh (x6) để Earth → Crust shell liền mạch
+  const earthOpacity = THREE.MathUtils.clamp(1.0 - xRayProgress * 6, 0, 1);
+  const shellOpacity = THREE.MathUtils.clamp(xRayProgress * 6, 0, 1);
+
+  if (xRayProgress > 0.005) {
+    explodeSystem.visible = true;
+
+    // Shell layers: trượt + fade in
+    let maxShellDist = 0;
+    explodeLayers.forEach(layerGroup => {
+      const target = layerGroup.userData.targetX * xRayProgress;
+      layerGroup.position.x += (target - layerGroup.position.x) * delta * 6.0;
+      maxShellDist = Math.max(maxShellDist, Math.abs(layerGroup.position.x));
+
+      layerGroup.traverse(child => {
+        if (child.isMesh && child.material) {
+          child.material.transparent = true;
+          child.material.opacity = shellOpacity;
+        }
+        // Ẩn bảng thông tin ngay khi đang đóng
+        if (child.isSprite) {
+          child.visible = isXRayMode;
+        }
+      });
+    });
+
+    // Khi ĐÓNG: Earth chỉ hiện sau khi shells đã thu về gần tâm
+    const shellsCollapsed = maxShellDist < 0.08;
+    if (!isXRayMode && shellsCollapsed) {
+      // Ẩn ngay toàn bộ explode (bao gồm bảng thông tin)
+      explodeSystem.visible = false;
+      earth.material.transparent = false;
+      earth.material.opacity = 1.0;
+      clouds.material.opacity = 0.6;
+      atmosMat.uniforms.uOpacity.value = 1.0;
+      cityLightsMat.uniforms.uOpacity.value = 1.0;
+      earthSurfaceMeshes.forEach(m => { m.visible = true; });
+      explodeLayers.forEach(lg => { lg.position.x = 0; });
+    } else {
+      earth.material.transparent = true;
+      earth.material.opacity = earthOpacity;
+      clouds.material.opacity = earthOpacity * 0.6;
+      atmosMat.uniforms.uOpacity.value = earthOpacity;
+      cityLightsMat.uniforms.uOpacity.value = earthOpacity;
+      earthSurfaceMeshes.forEach(m => { m.visible = (earthOpacity > 0.01); });
+    }
+  } else {
+    explodeSystem.visible = false;
+    earth.material.opacity = 1.0;
+    earth.material.transparent = false;
+    clouds.material.opacity = 0.6;
+    atmosMat.uniforms.uOpacity.value = 1.0;
+    cityLightsMat.uniforms.uOpacity.value = 1.0;
+    earthSurfaceMeshes.forEach(m => { m.visible = true; });
+    explodeLayers.forEach(lg => { lg.position.x = 0; });
+  }
+
+  // Tạm giấu cờ quốc gia khi đang xem cấu tạo lõi
+  interactionPoints.forEach(pt => {
+    pt.parent.visible = (xRayProgress < 0.3);
+  });
+
+  earthOrbitAngle += delta * BASE_ORBIT_SPEED * earthRotationSpeedMultiplier;
   earthSystem.position.x = Math.cos(earthOrbitAngle) * ORBIT_RADIUS;
   earthSystem.position.z = Math.sin(earthOrbitAngle) * ORBIT_RADIUS;
 
-  moonOrbitAngle -= delta * BASE_MOON_SPEED * earthRotationSpeedMultiplier; 
+  moonOrbitAngle -= delta * BASE_MOON_SPEED * earthRotationSpeedMultiplier;
   moon.position.set(Math.cos(moonOrbitAngle) * MOON_ORBIT_R, 0, Math.sin(moonOrbitAngle) * MOON_ORBIT_R);
-  moon.rotation.y = moonOrbitAngle; 
+  moon.rotation.y = moonOrbitAngle;
 
   const dx = earthSystem.position.x - previousEarthPosition.x;
   const dz = earthSystem.position.z - previousEarthPosition.z;
-  
+
   if (renderer.xr.isPresenting) {
     const session = renderer.xr.getSession();
     if (session && session.inputSources) {
@@ -539,8 +813,8 @@ renderer.setAnimationLoop(() => {
         if (source.gamepad && source.gamepad.axes) {
           const stickX = source.gamepad.axes.length > 2 ? source.gamepad.axes[2] : source.gamepad.axes[0];
           const stickY = source.gamepad.axes.length > 3 ? source.gamepad.axes[3] : source.gamepad.axes[1];
-          if (Math.abs(stickX) > 0.1) vrOrbitAngle -= stickX * 0.03; 
-          if (Math.abs(stickY) > 0.1) vrDistance += stickY * 0.05;   
+          if (Math.abs(stickX) > 0.1) vrOrbitAngle -= stickX * 0.03;
+          if (Math.abs(stickY) > 0.1) vrDistance += stickY * 0.05;
         }
       }
     }
@@ -550,13 +824,20 @@ renderer.setAnimationLoop(() => {
     vrCameraOffset.position.set(0, 0, vrDistance);
   } else {
     camera.position.x += dx; camera.position.z += dz;
-    controls.target.copy(earthSystem.position);
+    // Khi Explode: dịch tâm nhìn sang Upper Mantle (layer 1) để căn giữa
+    if (xRayProgress > 0.01) {
+      const upperMantleWorldPos = new THREE.Vector3();
+      explodeLayers[1].getWorldPosition(upperMantleWorldPos);
+      controls.target.lerp(upperMantleWorldPos, delta * 4.0);
+    } else {
+      controls.target.copy(earthSystem.position);
+    }
   }
-  
+
   previousEarthPosition.copy(earthSystem.position);
-  
+
   camera.getWorldPosition(new THREE.Vector3());
-  universeGroup.position.copy(camera.position); 
+  universeGroup.position.copy(camera.position);
 
   const sunDirW = sunGroup.position.clone().sub(earthSystem.position).normalize();
   const invN = new THREE.Matrix3().getNormalMatrix(earthGroup.matrixWorld).invert();
@@ -566,10 +847,10 @@ renderer.setAnimationLoop(() => {
 
   const earthWorldPos = new THREE.Vector3(); earthGroup.getWorldPosition(earthWorldPos);
   interactionPoints.forEach(point => {
-    if (point !== hoveredPoint) { 
+    if (point !== hoveredPoint) {
       const pointWorldPos = new THREE.Vector3(); point.getWorldPosition(pointWorldPos);
       const dot = pointWorldPos.clone().sub(earthWorldPos).normalize().dot(sunDirW);
-      if (dot < -0.1) { point.material.color.setHex(0xffffff); point.userData.glow.material.color.setHex(0xcccccc); } 
+      if (dot < -0.1) { point.material.color.setHex(0xffffff); point.userData.glow.material.color.setHex(0xcccccc); }
       else { point.material.color.setHex(0xff3333); point.userData.glow.material.color.setHex(0xffffff); }
     }
   });
